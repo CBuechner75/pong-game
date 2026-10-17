@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simple Pong</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#101827;color:#eef5ff;font:18px system-ui,sans-serif}main{width:min(94vw,850px);text-align:center}h1{margin:20px 0 8px}p{color:#b9c8dc;line-height:1.5}canvas{display:block;width:100%;background:#07111f;border:2px solid #526782;border-radius:12px;touch-action:none}button{font:inherit;font-weight:650;background:#80e5cb;color:#08251e;border:0;border-radius:8px;padding:12px 24px;cursor:pointer;margin:18px 0 0}button:focus-visible{outline:3px solid white;outline-offset:4px}.hint{font-size:15px}
+</style>
+<main>
+<h1>Simple Pong</h1>
+<p>You’re on the left. Move your mouse, drag on the court, or use ↑ and ↓.</p>
+<canvas id="court" width="800" height="450" aria-label="Pong court. You control the left paddle with the up and down arrow keys. First to seven points wins."></canvas>
+<button id="start">Start game</button>
+<p id="status" role="status">First to 7 wins. Play against the computer.</p>
+<p class="hint">Space = pause or resume · Restart with the button</p>
+</main>
+<script>
+'use strict';
+const canvas=document.getElementById('court'),ctx=canvas.getContext('2d');
+const button=document.getElementById('start'),status=document.getElementById('status');
+const W=800,H=450,PH=84,PW=12,keys=new Set();
+let player=H/2-PH/2,computer=player,left=0,right=0,ball,playing=false,paused=false,last=0;
+const clamp=y=>Math.max(0,Math.min(H-PH,y));
+function serve(direction){ball={x:W/2,y:H/2,vx:direction*300,vy:(Math.random()-.5)*240};}
+function start(){left=right=0;player=computer=H/2-PH/2;serve(Math.random()<.5?-1:1);playing=true;paused=false;button.textContent='Restart game';status.textContent='First to 7 wins. Good luck!';}
+function pause(){if(!playing)return;paused=!paused;status.textContent=paused?'Paused — press Space to resume.':'Game resumed. First to 7 wins.';}
+button.addEventListener('click',start);
+window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();if(e.code==='Space'&&!e.repeat){if(!playing)start();else pause();}keys.add(e.code);}});
+window.addEventListener('keyup',e=>keys.delete(e.code));
+window.addEventListener('blur',()=>{keys.clear();if(playing&&!paused)pause();});
+function pointAt(e){const r=canvas.getBoundingClientRect();player=clamp((e.clientY-r.top)*H/r.height-PH/2);}
+canvas.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)pointAt(e);});
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointAt(e);});
+function score(who){if(who==='player')left++;else right++;if(left===7||right===7){playing=false;status.textContent=left===7?'You win! Click Play again for another game.':'Computer wins! Click Play again to try again.';button.textContent='Play again';}else serve(who==='player'?-1:1);}
+function update(dt){
+ if(!playing||paused)return;
+ player=clamp(player+((keys.has('ArrowDown')?1:0)-(keys.has('ArrowUp')?1:0))*420*dt);
+ const diff=ball.y-(computer+PH/2);computer=clamp(computer+Math.sign(diff)*Math.min(Math.abs(diff),225*dt));
+ ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+ if(ball.y<8){ball.y=8;ball.vy=Math.abs(ball.vy);}if(ball.y>H-8){ball.y=H-8;ball.vy=-Math.abs(ball.vy);}
+ if(ball.vx<0&&ball.x-8<=36&&ball.x+8>=24&&ball.y+8>=player&&ball.y-8<=player+PH){ball.x=44;ball.vx=Math.min(540,Math.abs(ball.vx)*1.06);ball.vy=((ball.y-player-PH/2)/(PH/2))*310;}
+ if(ball.vx>0&&ball.x+8>=764&&ball.x-8<=776&&ball.y+8>=computer&&ball.y-8<=computer+PH){ball.x=756;ball.vx=-Math.min(540,Math.abs(ball.vx)*1.06);ball.vy=((ball.y-computer-PH/2)/(PH/2))*310;}
+ if(ball.x<-12)score('computer');else if(ball.x>W+12)score('player');
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);ctx.strokeStyle='#34465d';ctx.setLineDash([9,12]);ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+ ctx.fillStyle='#80e5cb';ctx.fillRect(24,player,PW,PH);ctx.fillStyle='#ffb887';ctx.fillRect(764,computer,PW,PH);
+ ctx.fillStyle='#eef5ff';ctx.beginPath();ctx.arc(ball.x,ball.y,8,0,Math.PI*2);ctx.fill();ctx.textAlign='center';ctx.font='bold 46px system-ui';ctx.fillText(left,330,65);ctx.fillText(right,470,65);
+ if(!playing||paused){ctx.fillStyle='rgba(7,17,31,.78)';ctx.fillRect(0,155,W,140);ctx.fillStyle='#eef5ff';ctx.font='bold 28px system-ui';ctx.fillText(paused?'Paused':left===7?'You win!':right===7?'Computer wins':'Ready to play?',W/2,215);ctx.font='18px system-ui';ctx.fillText(paused?'Press Space to resume':'Use the button below to play',W/2,252);}
+}
+function frame(now){const dt=Math.min((now-last)/1000,.025);last=now;update(dt);draw();requestAnimationFrame(frame);}
+serve(1);requestAnimationFrame(frame);
+</script>
+</html>
